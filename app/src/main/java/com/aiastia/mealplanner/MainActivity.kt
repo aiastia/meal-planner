@@ -47,6 +47,7 @@ fun App() {
     var days by remember { mutableStateOf(Store.days) }
     var people by remember { mutableStateOf(Store.people) }
     var pref by remember { mutableStateOf(Store.pref) }
+    var members by remember { mutableStateOf(Store.members) }
 
     // 已有菜单但没有任何勾选时，默认全选
     LaunchedEffect(plan) {
@@ -58,13 +59,19 @@ fun App() {
 
     fun generate() {
         if (generating) return
+        // 有家庭成员时：人数按成员数算，每人偏好逐行并入提示词
+        val effPeople = if (members.isEmpty()) people else members.size
+        val prefAll = buildString {
+            members.forEach { m -> if (m.name.isNotBlank()) appendLine("${m.name}：${m.pref}") }
+            if (pref.isNotBlank()) appendLine("全家：$pref")
+        }.trim()
         scope.launch {
             generating = true
             try {
                 var result: List<DayPlan>? = null
                 if (Store.aiReady) {
                     try {
-                        result = Ai.generatePlan(Store.baseUrl, Store.apiKey, Store.model, days, people, pref)
+                        result = Ai.generatePlan(Store.baseUrl, Store.apiKey, Store.model, days, effPeople, prefAll)
                     } catch (e: Exception) {
                         snackbar.showSnackbar("AI 生成失败：${e.message}。已改用内置菜单。")
                     }
@@ -109,10 +116,11 @@ fun App() {
         Box(Modifier.padding(pad)) {
             when (tab) {
                 0 -> PlanScreen(
-                    plan, selected, generating, days, people, pref,
+                    plan, selected, generating, days, people, pref, members,
                     onDays = { days = it; Store.days = it },
                     onPeople = { people = it; Store.people = it },
                     onPref = { pref = it; Store.pref = it },
+                    onMembers = { members = it; Store.members = it },
                     onGenerate = ::generate, onToggle = ::toggleSel
                 )
                 1 -> ShoppingScreen(plan, selected, checked, onToggle = ::toggleChecked)

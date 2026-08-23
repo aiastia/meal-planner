@@ -28,7 +28,7 @@ object Ai {
         val prompt = buildString {
             append("请规划 ${days} 天的家庭三餐菜单（${people} 人份），全部为中式家常菜，食材在普通超市或菜市场容易买到。")
             append("每天早餐 1-2 道、午餐 2-3 道、晚餐 2-3 道，荤素搭配。")
-            if (pref.isNotBlank()) append("口味偏好/忌口：$pref。")
+            if (pref.isNotBlank()) append("成员与家庭偏好（逐行「称呼：偏好」，必须全部满足，过敏食材严格避开）：\n$pref\n")
             append("严格按此 JSON 格式输出：")
             append("{\"days\":[{\"label\":\"第1天\",\"meals\":[{\"type\":\"早餐\",\"dishes\":[{\"name\":\"菜名\",\"ingredients\":[\"食材 用量\"]}]}]}]}")
         }

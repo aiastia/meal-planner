@@ -9,6 +9,9 @@ data class Dish(val name: String, val ingredients: List<String>)
 data class Meal(val type: String, val dishes: List<Dish>)
 data class DayPlan(val label: String, val meals: List<Meal>)
 
+/** 家庭成员及其单独的口味偏好/忌口 */
+data class Member(val name: String, val pref: String)
+
 /** 从 AI 或本地存储的 JSON 解析出菜单，格式不合法返回 null */
 fun dayPlansFromJson(s: String): List<DayPlan>? = try {
     val days = JSONObject(s).getJSONArray("days")
@@ -149,4 +152,21 @@ object Store {
     var pref: String
         get() = prefs.getString("pref", "") ?: ""
         set(v) = prefs.edit().putString("pref", v).apply()
+
+    var members: List<Member>
+        get() {
+            val s = prefs.getString("members", null) ?: return emptyList()
+            return try {
+                val arr = JSONArray(s)
+                (0 until arr.length()).map {
+                    Member(arr.getJSONObject(it).optString("name"), arr.getJSONObject(it).optString("pref"))
+                }
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+        set(v) {
+            val arr = JSONArray(v.map { JSONObject().put("name", it.name).put("pref", it.pref) })
+            prefs.edit().putString("members", arr.toString()).apply()
+        }
 }

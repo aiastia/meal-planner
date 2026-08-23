@@ -33,6 +33,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -62,12 +63,27 @@ fun PlanScreen(
     days: Int,
     people: Int,
     pref: String,
+    members: List<Member>,
     onDays: (Int) -> Unit,
     onPeople: (Int) -> Unit,
     onPref: (String) -> Unit,
+    onMembers: (List<Member>) -> Unit,
     onGenerate: () -> Unit,
     onToggle: (String) -> Unit
 ) {
+    // null=弹窗关闭，-1=新增成员，>=0=编辑第几位成员
+    var memberEditing by remember { mutableStateOf<Int?>(null) }
+    var mName by remember { mutableStateOf("") }
+    var mPref by remember { mutableStateOf("") }
+    LaunchedEffect(memberEditing) {
+        val idx = memberEditing
+        if (idx != null && idx >= 0 && idx < members.size) {
+            mName = members[idx].name; mPref = members[idx].pref
+        } else {
+            mName = ""; mPref = ""
+        }
+    }
+
     LazyColumn(
         Modifier.fillMaxSize(),
         contentPadding = PaddingValues(16.dp),
@@ -83,31 +99,66 @@ fun PlanScreen(
                             (1..7).forEach { d -> DayChip(d, d == days) { onDays(d) } }
                         }
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("人数", style = MaterialTheme.typography.bodyMedium)
-                        Spacer(Modifier.width(12.dp))
-                        OutlinedButton(
-                            onClick = { if (people > 1) onPeople(people - 1) },
-                            contentPadding = PaddingValues(horizontal = 14.dp)
-                        ) { Text("−") }
+                    if (members.isEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("人数", style = MaterialTheme.typography.bodyMedium)
+                            Spacer(Modifier.width(12.dp))
+                            OutlinedButton(
+                                onClick = { if (people > 1) onPeople(people - 1) },
+                                contentPadding = PaddingValues(horizontal = 14.dp)
+                            ) { Text("−") }
+                            Text(
+                                "$people 人",
+                                Modifier.padding(horizontal = 10.dp),
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            OutlinedButton(
+                                onClick = { if (people < 8) onPeople(people + 1) },
+                                contentPadding = PaddingValues(horizontal = 14.dp)
+                            ) { Text("＋") }
+                        }
+                    } else {
                         Text(
-                            "$people 人",
-                            Modifier.padding(horizontal = 10.dp),
-                            style = MaterialTheme.typography.titleMedium
+                            "👥 已按 ${members.size} 位成员的偏好生成（人数 = 成员数）",
+                            style = MaterialTheme.typography.bodyMedium
                         )
-                        OutlinedButton(
-                            onClick = { if (people < 8) onPeople(people + 1) },
-                            contentPadding = PaddingValues(horizontal = 14.dp)
-                        ) { Text("＋") }
                     }
-                    OutlinedTextField(
-                        value = pref,
-                        onValueChange = onPref,
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("口味偏好 / 忌口（可选）") },
-                        placeholder = { Text("比如：不吃辣、少油、多海鲜") },
-                        singleLine = true
-                    )
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text("口味偏好 / 忌口", style = MaterialTheme.typography.bodyMedium)
+                        members.forEachIndexed { i, m ->
+                            Row(
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable { memberEditing = i }
+                                    .padding(vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text("👤 ${m.name}", fontWeight = FontWeight.Medium)
+                                if (m.pref.isNotBlank()) {
+                                    Spacer(Modifier.width(8.dp))
+                                    Text(
+                                        m.pref,
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis
+                                    )
+                                }
+                            }
+                        }
+                        TextButton(onClick = { memberEditing = -1 }) {
+                            Text("＋ 家庭成员（每人单独设偏好，点击成员可修改）")
+                        }
+                        OutlinedTextField(
+                            value = pref,
+                            onValueChange = onPref,
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("全家共同偏好（可选）") },
+                            placeholder = { Text("比如：少油、清淡、多海鲜") },
+                            singleLine = true
+                        )
+                    }
                     Button(onClick = onGenerate, modifier = Modifier.fillMaxWidth(), enabled = !generating) {
                         if (generating) {
                             CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp)
@@ -161,6 +212,53 @@ fun PlanScreen(
                 }
             }
         }
+    }
+
+    if (memberEditing != null) {
+        val idx = memberEditing
+        AlertDialog(
+            onDismissRequest = { memberEditing = null },
+            title = { Text(if (idx == -1) "添加家庭成员" else "编辑家庭成员") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = mName,
+                        onValueChange = { mName = it },
+                        label = { Text("称呼（如：妈妈、小明）") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = mPref,
+                        onValueChange = { mPref = it },
+                        label = { Text("偏好 / 忌口（如：不吃香菜、花生过敏）") },
+                        singleLine = true
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    if (mName.isNotBlank()) {
+                        val list = members.toMutableList()
+                        val m = Member(mName.trim(), mPref.trim())
+                        if (idx == -1) list.add(m)
+                        else if (idx != null && idx >= 0 && idx < list.size) list[idx] = m
+                        onMembers(list)
+                    }
+                    memberEditing = null
+                }) { Text("保存") }
+            },
+            dismissButton = {
+                Row {
+                    if (idx != null && idx >= 0) {
+                        TextButton(onClick = {
+                            onMembers(members.filterIndexed { i, _ -> i != idx })
+                            memberEditing = null
+                        }) { Text("删除", color = MaterialTheme.colorScheme.error) }
+                    }
+                    TextButton(onClick = { memberEditing = null }) { Text("取消") }
+                }
+            }
+        )
     }
 }
 
