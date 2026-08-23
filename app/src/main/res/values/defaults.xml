@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 本地构建占位值。正式 APK 由 CI 用仓库 Secrets 注入真实默认配置，源码里不保存 key。 -->
+<resources>
+    <string name="default_base_url" translatable="false">https://open.124678.xyz/v1</string>
+    <string name="default_api_key" translatable="false"></string>
+    <string name="default_model" translatable="false">gpt-4o-mini</string>
+</resources>

@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
@@ -35,6 +36,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -48,6 +50,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
 
 // ---------- 菜谱页 ----------
 
@@ -114,7 +117,7 @@ fun PlanScreen(
                             Text("✨ 生成菜单")
                         }
                     }
-                    if (Store.baseUrl.isBlank() || Store.model.isBlank()) {
+                    if (!Store.aiReady) {
                         Text(
                             "提示：在「设置」页配置 AI 后可智能生成，目前将使用内置菜单随机搭配",
                             style = MaterialTheme.typography.bodySmall,
@@ -301,6 +304,9 @@ fun SettingsScreen(onMsg: (String) -> Unit) {
     var url by remember { mutableStateOf(Store.baseUrl) }
     var key by remember { mutableStateOf(Store.apiKey) }
     var model by remember { mutableStateOf(Store.model) }
+    var models by remember { mutableStateOf<List<String>?>(null) }
+    var loadingModels by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     Column(
         Modifier
@@ -311,7 +317,7 @@ fun SettingsScreen(onMsg: (String) -> Unit) {
     ) {
         Text("AI 设置", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "配置好后可让 AI 智能生成菜单；不配置也能用（使用内置菜单）。密钥只保存在你的手机本地。",
+            "App 已内置默认配置（下面预填的地址/密钥/模型），开箱即用；也可改成自己的，改乱了点「恢复默认」即可。密钥只保存在手机本地。",
             style = MaterialTheme.typography.bodySmall
         )
         Text("快速填充（点一下自动填地址和模型名）：", style = MaterialTheme.typography.bodyMedium)
@@ -348,13 +354,77 @@ fun SettingsScreen(onMsg: (String) -> Unit) {
             placeholder = { Text("glm-4-flash") },
             singleLine = true
         )
-        Button(
+        OutlinedButton(
             onClick = {
-                Store.baseUrl = url; Store.apiKey = key; Store.model = model
-                onMsg("已保存 ✅")
+                scope.launch {
+                    loadingModels = true
+                    try {
+                        val list = Ai.fetchModels(url, key)
+                        if (list.isEmpty()) onMsg("接口没有返回任何模型")
+                        else models = list
+                    } catch (e: Exception) {
+                        onMsg("获取模型列表失败：${e.message}")
+                    } finally {
+                        loadingModels = false
+                    }
+                }
             },
+            enabled = url.isNotBlank() && !loadingModels,
             modifier = Modifier.fillMaxWidth()
-        ) { Text("保存") }
+        ) {
+            if (loadingModels) {
+                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(6.dp))
+                Text("获取中…")
+            } else {
+                Text("🔄 获取在线模型")
+            }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = {
+                    Store.baseUrl = url; Store.apiKey = key; Store.model = model
+                    onMsg("已保存 ✅")
+                },
+                modifier = Modifier.weight(1f)
+            ) { Text("保存") }
+            OutlinedButton(
+                onClick = {
+                    Store.resetAi()
+                    url = Store.baseUrl; key = Store.apiKey; model = Store.model
+                    onMsg("已恢复默认配置 ✅")
+                },
+                modifier = Modifier.weight(1f)
+            ) { Text("恢复默认") }
+        }
+        models?.let { list ->
+            AlertDialog(
+                onDismissRequest = { models = null },
+                confirmButton = {
+                    TextButton(onClick = { models = null }) { Text("关闭") }
+                },
+                title = { Text("在线模型（${list.size} 个）") },
+                text = {
+                    Column(Modifier.verticalScroll(rememberScrollState())) {
+                        list.forEach { m ->
+                            Text(
+                                m,
+                                Modifier
+                                    .fillMaxWidth()
+                                    .clickable {
+                                        model = m
+                                        models = null
+                                    }
+                                    .padding(vertical = 10.dp),
+                                fontWeight = if (m == model) FontWeight.Bold else null,
+                                color = if (m == model) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            )
+        }
 
         Text(
             "· 智谱：open.bigmodel.cn 注册后创建 API Key，glm-4-flash 免费\n" +

@@ -46,6 +46,38 @@ object Ai {
         null
     }
 
+    /** 拉取接口的在线模型列表（OpenAI 兼容的 /models 端点），用于设置页一键选模型 */
+    suspend fun fetchModels(baseUrl: String, apiKey: String): List<String> = withContext(Dispatchers.IO) {
+        val conn = (URL(baseUrl.trimEnd('/') + "/models").openConnection() as HttpURLConnection).apply {
+            requestMethod = "GET"
+            connectTimeout = 10000
+            readTimeout = 30000
+            if (apiKey.isNotBlank()) setRequestProperty("Authorization", "Bearer $apiKey")
+        }
+        val code = conn.responseCode
+        val text = try {
+            (if (code in 200..299) conn.inputStream else conn.errorStream)
+                ?.bufferedReader()?.use { it.readText() } ?: ""
+        } finally {
+            conn.disconnect()
+        }
+        if (code !in 200..299) throw IOException("HTTP $code：${text.take(200)}")
+        val ids = ArrayList<String>()
+        val trimmed = text.trim()
+        if (trimmed.startsWith("[")) {
+            val arr = JSONArray(trimmed)
+            for (i in 0 until arr.length()) {
+                ids.add(arr.optJSONObject(i)?.optString("id") ?: arr.optString(i))
+            }
+        } else {
+            val data = JSONObject(trimmed).optJSONArray("data") ?: JSONArray()
+            for (i in 0 until data.length()) {
+                ids.add(data.getJSONObject(i).optString("id"))
+            }
+        }
+        ids.filter { it.isNotBlank() }.distinct().sorted()
+    }
+
     private fun chat(baseUrl: String, apiKey: String, model: String, userPrompt: String): String {
         val url = URL(baseUrl.trimEnd('/') + "/chat/completions")
         val conn = (url.openConnection() as HttpURLConnection).apply {

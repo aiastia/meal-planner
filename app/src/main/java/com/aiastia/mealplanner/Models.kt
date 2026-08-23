@@ -73,16 +73,29 @@ fun mergeIngredients(dishes: List<Dish>): List<String> {
     return qty.map { (k, v) -> "${k.first} ${fmt(v)}${k.second}" } + plain.toList()
 }
 
-/** 本地持久化：菜单、勾选状态、设置，全部存在手机里 */
+/** 本地持久化：菜单、勾选状态、设置，全部存在手机里。
+ *  AI 三项配置采用「构建时注入默认值 + 用户可覆盖」：未单独设置时使用内置默认值。 */
 object Store {
+    private lateinit var appCtx: Context
     private lateinit var prefs: SharedPreferences
 
     fun init(ctx: Context) {
-        prefs = ctx.getSharedPreferences("store", Context.MODE_PRIVATE)
+        appCtx = ctx.applicationContext
+        prefs = appCtx.getSharedPreferences("store", Context.MODE_PRIVATE)
     }
 
     private fun putStringSet(key: String, set: Set<String>) =
         prefs.edit().putStringSet(key, HashSet(set)).apply()
+
+    /** 恢复到构建时注入的默认 AI 配置 */
+    fun resetAi() {
+        prefs.edit().remove("baseUrl").remove("apiKey").remove("model").apply()
+    }
+
+    /** AI 是否已可用：地址和模型已配置；https 接口还要求有 key（本地 Ollama 可无 key） */
+    val aiReady: Boolean
+        get() = baseUrl.isNotBlank() && model.isNotBlank() &&
+            (!baseUrl.startsWith("https") || apiKey.isNotBlank())
 
     var plan: List<DayPlan>?
         get() = prefs.getString("plan", null)?.let { if (it.isEmpty()) null else dayPlansFromJson(it) }
@@ -114,15 +127,15 @@ object Store {
         set(v) = putStringSet("checked", v)
 
     var baseUrl: String
-        get() = prefs.getString("baseUrl", "") ?: ""
+        get() = prefs.getString("baseUrl", null) ?: appCtx.getString(R.string.default_base_url)
         set(v) = prefs.edit().putString("baseUrl", v.trim()).apply()
 
     var apiKey: String
-        get() = prefs.getString("apiKey", "") ?: ""
+        get() = prefs.getString("apiKey", null) ?: appCtx.getString(R.string.default_api_key)
         set(v) = prefs.edit().putString("apiKey", v.trim()).apply()
 
     var model: String
-        get() = prefs.getString("model", "") ?: ""
+        get() = prefs.getString("model", null) ?: appCtx.getString(R.string.default_model)
         set(v) = prefs.edit().putString("model", v.trim()).apply()
 
     var days: Int

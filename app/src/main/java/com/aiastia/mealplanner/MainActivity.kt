@@ -62,7 +62,7 @@ fun App() {
             generating = true
             try {
                 var result: List<DayPlan>? = null
-                if (Store.baseUrl.isNotBlank() && Store.model.isNotBlank()) {
+                if (Store.aiReady) {
                     try {
                         result = Ai.generatePlan(Store.baseUrl, Store.apiKey, Store.model, days, people, pref)
                     } catch (e: Exception) {

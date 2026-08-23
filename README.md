@@ -17,6 +17,17 @@ AI 帮你规划几天三餐菜单 → 勾选想做的菜 → 自动汇总采购�
 
 ## AI 配置（App 内「设置」页）
 
+App **内置默认配置**（构建时由 CI 从仓库 Secrets 注入，源码不含 key），装上即用；设置页可改为自己的，或点「恢复默认」还原。模型名不用手打——点「🔄 获取在线模型」自动拉取接口的模型列表点选。
+
+**维护者：如何更新默认配置**
+
+- 默认 API Key：仓库 **Settings → Secrets and variables → Actions → New repository secret**，Name 填 `DEFAULT_API_KEY`，Value 填 key。key 只进加密 Secrets，不会出现在源码里
+- 默认模型：同一页面 **Variables** 标签，Name 填 `DEFAULT_MODEL`，Value 填模型名（不设则用 `gpt-4o-mini`）
+- 默认接口地址：改 `.github/workflows/build.yml` 里 `DEFAULT_BASE_URL`
+- 改完后 Actions 里手动 Run workflow（或随便推个提交）即可出新 APK
+
+也支持手动改用其他服务：
+
 | 服务 | Base URL | 模型名 | Key |
 | --- | --- | --- | --- |
 | 智谱（免费模型） | `https://open.bigmodel.cn/api/paas/v4` | `glm-4-flash` | open.bigmodel.cn 创建 |
