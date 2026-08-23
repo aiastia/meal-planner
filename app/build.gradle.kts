@@ -12,8 +12,8 @@ android {
         applicationId = "com.aiastia.mealplanner"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "2.0"
+        versionCode = 7
+        versionName = "2.1"
     }
 
     // 固定签名：CI 用 GitHub Secrets 里的密钥库签名，保证每次构建签名一致、可直接覆盖安装

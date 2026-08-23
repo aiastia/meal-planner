@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -46,6 +47,7 @@ import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -405,7 +407,9 @@ fun SettingsScreen(onMsg: (String) -> Unit) {
     var models by remember { mutableStateOf<List<String>?>(null) }
     var loadingModels by remember { mutableStateOf(false) }
     var testing by remember { mutableStateOf(false) }
+    var showLog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val clipboard = LocalClipboardManager.current
 
     Column(
         Modifier
@@ -521,6 +525,9 @@ fun SettingsScreen(onMsg: (String) -> Unit) {
                 modifier = Modifier.weight(1f)
             ) { Text("恢复默认") }
         }
+        TextButton(onClick = { showLog = true }, modifier = Modifier.fillMaxWidth()) {
+            Text("🧪 请求日志（查看每次发出的请求，排查用）")
+        }
         models?.let { list ->
             AlertDialog(
                 onDismissRequest = { models = null },
@@ -558,5 +565,52 @@ fun SettingsScreen(onMsg: (String) -> Unit) {
             style = TextStyle(fontSize = 12.sp, lineHeight = 18.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
+
+        if (showLog) {
+            AlertDialog(
+                onDismissRequest = { showLog = false },
+                title = { Text("请求日志（重启后清空，最多 30 条）") },
+                text = {
+                    Column(
+                        Modifier
+                            .verticalScroll(rememberScrollState())
+                            .heightIn(max = 420.dp)
+                    ) {
+                        if (HttpLog.entries.isEmpty()) {
+                            Text(
+                                "还没有记录。去生成一次菜单或点「测试连接」，再回来看。",
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        } else {
+                            HttpLog.entries.forEach { e ->
+                                Text(
+                                    "[${e.time}] ${e.title} ${if (e.ok) "✅" else "❌"}",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Text(
+                                    e.request,
+                                    style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 14.sp),
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(e.response, style = TextStyle(fontFamily = FontFamily.Monospace, fontSize = 10.sp, lineHeight = 14.sp))
+                                HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                            }
+                        }
+                    }
+                },
+                confirmButton = {
+                    Row {
+                        TextButton(onClick = {
+                            val text = HttpLog.entries.joinToString("\n---\n") {
+                                "[${it.time}] ${it.title}\n${it.request}\n${it.response}"
+                            }
+                            clipboard.setText(AnnotatedString(text.ifBlank { "（空）" }))
+                        }) { Text("复制全部") }
+                        TextButton(onClick = { showLog = false }) { Text("关闭") }
+                    }
+                }
+            )
+        }
     }
 }
