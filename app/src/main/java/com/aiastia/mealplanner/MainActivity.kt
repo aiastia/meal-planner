@@ -69,28 +69,26 @@ fun App() {
             generating = true
             var msg: String? = null
             try {
-                var result: List<DayPlan>? = null
-                if (Store.aiReady) {
+                if (!Store.aiReady) {
+                    msg = "还没配置 AI：去「设置」页填入你的 API Key（地址已预填）"
+                } else {
                     try {
-                        result = Ai.generatePlan(Store.baseUrl, Store.apiKey, Store.model, days, effPeople, prefAll)
+                        val p = Ai.generatePlan(Store.baseUrl, Store.apiKey, Store.model, days, effPeople, prefAll)
+                        plan = p
+                        Store.plan = p
+                        selected = allDishKeys(p).toSet()
+                        Store.selected = selected
+                        checked = emptySet()
+                        Store.checked = checked
+                        msg = "已生成 $days 天菜单 🎉"
                     } catch (e: Exception) {
-                        msg = "AI 生成失败：${e.message}。已改用内置菜单。"
+                        msg = "生成失败：${e.message}"
                     }
                 }
-                val p = result ?: LocalDishes.randomPlan(days, effPeople)
-                plan = p
-                Store.plan = p
-                selected = allDishKeys(p).toSet()
-                Store.selected = selected
-                checked = emptySet()
-                Store.checked = checked
-                if (result != null) msg = "已生成 $days 天菜单 🎉"
-            } catch (e: Exception) {
-                msg = "生成出错：${e.message}"
             } finally {
                 generating = false
             }
-            // 提示条独立弹出，不再阻塞上面的状态复位（否则按钮会多转几秒）
+            // 提示条独立弹出，不阻塞上面的状态复位
             msg?.let { scope.launch { snackbar.showSnackbar(it) } }
         }
     }

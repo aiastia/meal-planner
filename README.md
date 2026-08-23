@@ -2,19 +2,21 @@
 
 AI 帮你规划几天三餐菜单 → 勾选想做的菜 → 自动汇总采购清单（同食材自动合并数量）。
 
-- 不配置 AI 也能用：内置家常菜库随机搭配
-- 配置 AI 后按人数、口味偏好智能生成；支持家庭成员每人单独设偏好（忌口/过敏一并照顾）
-- 点一次「生成」只调用 1 次 AI（整份菜单一次生成，失败自动降级内置菜单）
+- AI 流式生成（SSE），整份菜单一次请求边生成边接收，不会被网关空闲超时掐断
+- 支持家庭成员每人单独设偏好（忌口/过敏一并照顾）
+- 设置页「🔌 测试连接」一键验证接口和 Key，「🔄 获取在线模型」在线选模型
 - 采购清单可勾选「已买」、一键复制、分享
 - 所有数据只存在手机本地
 
 ## 云端打包（不需要在本机装任何开发工具）
 
-每次推送到 main 分支，GitHub Actions 会自动编译出 APK：
+每次推送到 main 分支，GitHub Actions 会自动编译出**固定签名**的 APK（签名密钥存在仓库 Secrets，每次构建签名一致，更新直接覆盖安装）：
 
 1. 仓库页面点 **Actions** 标签可看编译进度（首次约 5-10 分钟）
-2. 编译成功后到 **Releases** 页面下载 `app-debug.apk`
+2. 编译成功后到 **Releases** 页面下载 `app-release.apk`
 3. 手机打开安装，提示「未知来源」时选择允许
+
+维护者签名密钥（KEYSTORE_BASE64 / KEYSTORE_PASSWORD / KEY_ALIAS / KEY_PASSWORD 四个 Secrets）已配置；本地留有备份 `release.keystore` + `signing-info.txt`（均已 gitignore，勿外传，丢失后更新需卸载重装）。
 
 ## AI 配置（App 内「设置」页）
 
@@ -37,4 +39,4 @@ App 内置默认接口地址和模型名（**不含 key**，key 由用户在设�
 
 ## 技术栈
 
-Kotlin + Jetpack Compose (Material 3)，无第三方网络库（ HttpURLConnection + org.json ），minSdk 26。
+Kotlin + Jetpack Compose (Material 3)，HttpURLConnection + org.json，菜单生成走 SSE 流式接口，minSdk 26。

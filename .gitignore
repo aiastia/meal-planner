@@ -4,3 +4,8 @@ local.properties
 .idea/
 *.iml
 .DS_Store
+# 签名密钥：绝不提交
+*.keystore
+*.jks
+*.pem
+signing-info.txt

@@ -170,7 +170,7 @@ fun PlanScreen(
                     }
                     if (!Store.aiReady) {
                         Text(
-                            "提示：在「设置」页配置 AI 后可智能生成，目前将使用内置菜单随机搭配",
+                            "提示：还没配置 AI，去「设置」页填入你的 API Key 即可生成（地址已预填）",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -404,6 +404,7 @@ fun SettingsScreen(onMsg: (String) -> Unit) {
     var model by remember { mutableStateOf(Store.model) }
     var models by remember { mutableStateOf<List<String>?>(null) }
     var loadingModels by remember { mutableStateOf(false) }
+    var testing by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     Column(
@@ -415,7 +416,7 @@ fun SettingsScreen(onMsg: (String) -> Unit) {
     ) {
         Text("AI 设置", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "接口地址和默认模型已预填，只需填入你自己的 API Key 即可用 AI（不填则用内置菜单）。密钥只保存在你的手机本地。",
+            "接口地址已预填，填入你自己的 API Key 后点「🔌 测试连接」验证即可用。密钥只保存在你的手机本地。",
             style = MaterialTheme.typography.bodySmall
         )
         Text("快速填充（点一下自动填地址和模型名）：", style = MaterialTheme.typography.bodyMedium)
@@ -452,6 +453,31 @@ fun SettingsScreen(onMsg: (String) -> Unit) {
             placeholder = { Text("glm-4-flash") },
             singleLine = true
         )
+        OutlinedButton(
+            onClick = {
+                scope.launch {
+                    testing = true
+                    try {
+                        val n = Ai.fetchModels(url, key).size
+                        onMsg(if (n > 0) "✅ 连接成功，接口有 $n 个模型可用" else "✅ 连接成功（接口未返回模型列表）")
+                    } catch (e: Exception) {
+                        onMsg("❌ 测试失败：${e.message}")
+                    } finally {
+                        testing = false
+                    }
+                }
+            },
+            enabled = url.isNotBlank() && !testing,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            if (testing) {
+                CircularProgressIndicator(Modifier.size(14.dp), strokeWidth = 2.dp)
+                Spacer(Modifier.width(6.dp))
+                Text("测试中…")
+            } else {
+                Text("🔌 测试连接")
+            }
+        }
         OutlinedButton(
             onClick = {
                 scope.launch {

@@ -78,19 +78,22 @@ object Ai {
         ids.filter { it.isNotBlank() }.distinct().sorted()
     }
 
+    /** SSE 流式调用：边生成边收数据，长回答不会被网关空闲超时掐断 */
     private fun chat(baseUrl: String, apiKey: String, model: String, userPrompt: String): String {
         val url = URL(baseUrl.trimEnd('/') + "/chat/completions")
         val conn = (url.openConnection() as HttpURLConnection).apply {
             requestMethod = "POST"
             connectTimeout = 15000
-            readTimeout = 180000
+            readTimeout = 120000
             doOutput = true
             setRequestProperty("Content-Type", "application/json; charset=utf-8")
+            setRequestProperty("Accept", "text/event-stream")
             if (apiKey.isNotBlank()) setRequestProperty("Authorization", "Bearer $apiKey")
         }
         val body = JSONObject().apply {
             put("model", model)
             put("temperature", 0.7)
+            put("stream", true)
             put("messages", JSONArray().apply {
                 put(JSONObject().put("role", "system").put("content", SYSTEM))
                 put(JSONObject().put("role", "user").put("content", userPrompt))
@@ -98,18 +101,39 @@ object Ai {
         }
         conn.outputStream.use { it.write(body.toString().toByteArray(Charsets.UTF_8)) }
         val code = conn.responseCode
-        val text = try {
-            (if (code in 200..299) conn.inputStream else conn.errorStream)
-                ?.bufferedReader()?.use { it.readText() } ?: ""
+        if (code !in 200..299) {
+            val err = try {
+                (conn.errorStream ?: conn.inputStream)?.bufferedReader()?.use { it.readText() } ?: ""
+            } catch (e: Exception) {
+                ""
+            } finally {
+                conn.disconnect()
+            }
+            throw IOException("接口返回 HTTP $code：${err.take(200)}")
+        }
+        val sb = StringBuilder()
+        try {
+            conn.inputStream.bufferedReader().useLines { lines ->
+                for (raw in lines) {
+                    val line = raw.trim()
+                    if (!line.startsWith("data:")) continue
+                    val payload = line.removePrefix("data:").trim()
+                    if (payload.isEmpty()) continue
+                    if (payload == "[DONE]") break
+                    try {
+                        val delta = JSONObject(payload)
+                            .optJSONArray("choices")?.optJSONObject(0)
+                            ?.optJSONObject("delta")?.optString("content")
+                        if (!delta.isNullOrEmpty()) sb.append(delta)
+                    } catch (e: Exception) {
+                        // 跳过无法解析的心跳/杂行
+                    }
+                }
+            }
         } finally {
             conn.disconnect()
         }
-        if (code !in 200..299) throw IOException("接口返回 HTTP $code：${text.take(200)}")
-        return try {
-            JSONObject(text).getJSONArray("choices").getJSONObject(0)
-                .getJSONObject("message").getString("content")
-        } catch (e: Exception) {
-            throw IOException("接口返回内容无法解析：${text.take(200)}")
-        }
+        if (sb.isBlank()) throw IOException("AI 没有返回内容（流为空），请重试或换个模型")
+        return sb.toString()
     }
 }

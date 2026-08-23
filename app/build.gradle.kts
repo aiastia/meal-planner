@@ -12,13 +12,27 @@ android {
         applicationId = "com.aiastia.mealplanner"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.4"
+        versionCode = 6
+        versionName = "2.0"
+    }
+
+    // 固定签名：CI 用 GitHub Secrets 里的密钥库签名，保证每次构建签名一致、可直接覆盖安装
+    val ksFile = System.getenv("STORE_FILE")
+    if (ksFile != null) {
+        signingConfigs {
+            create("release") {
+                storeFile = file(ksFile)
+                storePassword = System.getenv("STORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            if (ksFile != null) signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
