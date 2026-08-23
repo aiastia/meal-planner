@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 本地构建占位值。正式 APK 由 CI 用仓库 Secrets 注入真实默认配置，源码里不保存 key。 -->
+<!-- 默认 AI 配置：只内置地址和模型名，key 由用户在 App 设置页自己填写（不在源码/APK 中内置任何密钥）。 -->
 <resources>
     <string name="default_base_url" translatable="false">https://open.124678.xyz/v1</string>
     <string name="default_api_key" translatable="false"></string>

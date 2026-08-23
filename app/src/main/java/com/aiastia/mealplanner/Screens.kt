@@ -415,7 +415,7 @@ fun SettingsScreen(onMsg: (String) -> Unit) {
     ) {
         Text("AI 设置", style = MaterialTheme.typography.headlineSmall)
         Text(
-            "App 已内置默认配置（下面预填的地址/密钥/模型），开箱即用；也可改成自己的，改乱了点「恢复默认」即可。密钥只保存在手机本地。",
+            "接口地址和默认模型已预填，只需填入你自己的 API Key 即可用 AI（不填则用内置菜单）。密钥只保存在你的手机本地。",
             style = MaterialTheme.typography.bodySmall
         )
         Text("快速填充（点一下自动填地址和模型名）：", style = MaterialTheme.typography.bodyMedium)
